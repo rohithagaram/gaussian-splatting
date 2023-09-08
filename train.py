@@ -29,6 +29,8 @@ except ImportError:
     TENSORBOARD_FOUND = False
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
+
+    
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
@@ -82,15 +84,23 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             pipe.debug = True
         render_pkg = render(viewpoint_cam, gaussians, pipe, background)
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
-
+        image_bgr = render_pkg["render_bgr"]
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
+        gt_image_bgr = torch.stack((gt_image[2],gt_image[1],gt_image[0]),dim=0).cuda()
+        
         Ll1 = l1_loss(image, gt_image)
-        loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
+        Ll1_bgr = l1_loss(image_bgr, gt_image_bgr)
+        
+        loss_rgb = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
+        loss_bgr = (1.0 - opt.lambda_dssim) * Ll1_bgr + opt.lambda_dssim * (1.0 - ssim(image_bgr, gt_image_bgr))
+        loss =  (loss_rgb+loss_bgr)/2.
+        import pdb
+        pdb.set_trace()
         loss.backward()
 
         iter_end.record()
-
+        
         with torch.no_grad():
             # Progress bar
             ema_loss_for_log = 0.4 * loss.item() + 0.6 * ema_loss_for_log

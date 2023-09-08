@@ -28,7 +28,8 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         screenspace_points.retain_grad()
     except:
         pass
-
+    
+    
     # Set up rasterization configuration
     tanfovx = math.tan(viewpoint_camera.FoVx * 0.5)
     tanfovy = math.tan(viewpoint_camera.FoVy * 0.5)
@@ -68,6 +69,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     # If precomputed colors are provided, use them. Otherwise, if it is desired to precompute colors
     # from SHs in Python, do it. If not, then SH -> RGB conversion will be done by rasterizer.
     shs = None
+    shs_bgr = None  # Rohith
     colors_precomp = None
     if override_color is None:
         if pipe.convert_SHs_python:
@@ -77,15 +79,17 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
             sh2rgb = eval_sh(pc.active_sh_degree, shs_view, dir_pp_normalized)
             colors_precomp = torch.clamp_min(sh2rgb + 0.5, 0.0)
         else:
-            shs = pc.get_features
+            shs     = pc.get_features
+            shs_bgr = pc.get_features_bgr
     else:
         colors_precomp = override_color
 
-    # Rasterize visible Gaussians to image, obtain their radii (on screen). 
-    rendered_image, radii = rasterizer(
+    # Rasterize visible Gaussians to image, obtain their radii (on screen).
+    rendered_image, rendered_img_bgr, radii = rasterizer(
         means3D = means3D,
         means2D = means2D,
         shs = shs,
+        shs_bgr = shs_bgr,
         colors_precomp = colors_precomp,
         opacities = opacity,
         scales = scales,
@@ -95,6 +99,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     # Those Gaussians that were frustum culled or had a radius of 0 were not visible.
     # They will be excluded from value updates used in the splitting criteria.
     return {"render": rendered_image,
+            "render_bgr": rendered_img_bgr, 
             "viewspace_points": screenspace_points,
             "visibility_filter" : radii > 0,
             "radii": radii}
