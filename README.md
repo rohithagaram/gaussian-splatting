@@ -52,7 +52,7 @@ git clone git@github.com:graphdeco-inria/gaussian-splatting.git --recursive
 or
 ```shell
 # HTTPS
-git clone https://github.com/graphdeco-inria/gaussian-splatting --recursive
+git clone https://github.com/rohithagaram/gaussian-splatting.git --recursive
 ```
 
 ## Overview
